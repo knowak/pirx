@@ -46,7 +46,7 @@ class SpaceShip(object):
     def draw_future(self, how_far):
         screen_position = (int(self.position[0]), int(self.position[1]))
         self.future_image.fill(self.color)
-        self.future_image.set_alpha(int(128 - 128 * how_far))
+        self.future_image.set_alpha(int(96 - 96 * how_far))
         pygame.Surface.blit(screen, self.future_image, screen_position)
 
 class Statistics(object):
