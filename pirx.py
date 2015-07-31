@@ -8,6 +8,7 @@ import pygame
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
+SCREEN_COLOR_DEPTH = 32
 
 class Planet(object):
     def __init__(self, position, mass, radius, speed):
@@ -175,7 +176,7 @@ def setup_screen():
     global screen
     pygame.init()
     pygame.display.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.DOUBLEBUF, SCREEN_COLOR_DEPTH)
 
 
 def game_loop(world):
