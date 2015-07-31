@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import collections
 import itertools
 import math
 
@@ -30,6 +31,7 @@ class SpaceShip(object):
         self.radius = 2
         global screen
         self.screen = screen
+        self.mass = 1.0
 
     def draw(self):
         screen_position = (int(self.position[0]), int(self.position[1]))
@@ -59,12 +61,15 @@ class Statistics(object):
         self.min_sample = 2**31
 
 
+XYValue = collections.namedtuple('XYValue', 'x y v')
+XY = collections.namedtuple('XY', 'x y')
+
 class World(object):
     def __init__(self):
         global screen
         self.screen = screen
-        self.planets = [Planet((SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2), 100, 20, (0.0, 0))]
-        self.planets.append(Planet((SCREEN_WIDTH / 2, SCREEN_HEIGHT / 1.3), 20, 5, (0.4, 0)))
+        self.planets = [Planet((SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2), 100, 20, (-0.2, 0))]
+        self.planets.append(Planet((SCREEN_WIDTH / 2, SCREEN_HEIGHT / 1.3), 20, 5, (1.0, 0)))
         self.spaceships = []
         ship_position = (self.planets[0].position[0] + SCREEN_WIDTH / 4, self.planets[0].position[1] + SCREEN_HEIGHT / 4)
         ship_speed = (0.2, -0.5)
@@ -83,10 +88,8 @@ class World(object):
             ship_speed = (random.random() - 0.5,  random.random() - 0.5)
             rgba = (random.random() * 255, random.random() * 255, random.random() * 255, 255)
             color = pygame.color.Color(*tuple(int(c) for c in rgba))
-
             ship = SpaceShip(ship_position, ship_speed, color=color)
             self.spaceships.append(ship)
-
 
     class DestroyShipLater(object):
         def __init__(self, world, spaceship):
@@ -96,7 +99,6 @@ class World(object):
         def do(self):
             print "Boom"
             self.world.spaceships.remove(self.spaceship)
-
 
     def tick(self):
         self.simulate_ships()
@@ -108,6 +110,17 @@ class World(object):
             action.do()
         self.deferred_actions = []
 
+    def distance(self, obj1, obj2):
+        x = obj1.position[0] - obj2.position[0]
+        y = obj1.position[1] - obj2.position[1]
+        euclidean = math.sqrt(x**2 + y**2)
+        return XYValue(x, y, euclidean)
+
+    def gravity_force(self, obj1, obj2, distance):
+        forcex = math.copysign(1.0 / distance.v**2 * obj1.mass * obj2.mass, distance.x)
+        forcey = math.copysign(1.0 / distance.v**2 * obj1.mass * obj2.mass, distance.y)
+        return XY(forcex, forcey)
+
     def simulate_ships(self):
         for spaceship in self.spaceships:
             spaceship.position = (
@@ -117,38 +130,37 @@ class World(object):
 
             forcex, forcey = 0.0, 0.0
             for planet in self.planets:
-                distancex = planet.position[0] - spaceship.position[0]
-                distancey = planet.position[1] - spaceship.position[1]
-                distance = math.sqrt((distancex)**2 + (distancey)**2)
+                distance = self.distance(planet, spaceship)
 
-                if distance < planet.radius:
+                if distance.v < planet.radius:
                     self.deferred_actions.append(World.DestroyShipLater(self, spaceship))
 
-                forcex += math.copysign(1.0 / distance**2 * planet.mass, distancex)
-                forcey += math.copysign(1.0 / distance**2 * planet.mass, distancey)
+                force = self.gravity_force(planet, spaceship, distance)
+                forcex += force.x
+                forcey += force.y
 
             spaceship.speed = (spaceship.speed[0] + forcex, spaceship.speed[1] + forcey)
-
 
     def simulate_planets(self):
         for planet1, planet2 in itertools.product(self.planets, self.planets):
             if planet1 == planet2: continue
             forcex, forcey = 0.0, 0.0
-            distancex = planet2.position[0] - planet1.position[0]
-            distancey = planet2.position[1] - planet1.position[1]
-            distance = math.sqrt((distancex)**2 + (distancey)**2)
+            distance = self.distance(planet2, planet1)
 
-            forcex += math.copysign(1.0 / distance**2 * planet2.mass * planet1.mass / 10, distancex)
-            forcey += math.copysign(1.0 / distance**2 * planet2.mass * planet1.mass / 10, distancey)
+            force = self.gravity_force(planet1, planet2, distance)
+            forcex += force.x
+            forcey += force.y
 
             planet1.speed = (planet1.speed[0] + forcex / planet1.mass, planet1.speed[1] + forcey / planet1.mass)
 
+        self.move_planets()
+
+    def move_planets(self):
         for planet in self.planets:
             planet.position = (
                 planet.position[0] + planet.speed[0],
                 planet.position[1] + planet.speed[1]
             )
-
 
     def draw(self):
         self.screen.fill(self.color_of_space)
