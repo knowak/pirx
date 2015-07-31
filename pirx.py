@@ -203,6 +203,13 @@ def game_loop(world):
 
     while True:
         frame_timer.tick()
+        event = pygame.event.poll()
+
+        while event.type != pygame.NOEVENT:
+            if event.type == pygame.QUIT:
+                return
+            event = pygame.event.poll()
+
         current_world = futures.pop(0)
         screen.fill(current_world.color_of_space)
         current_world.draw()
