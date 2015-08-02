@@ -21,16 +21,8 @@ class Planet(object):
         self.radius = radius
         self.speed = speed
 
-    def draw(self):
-        screen_position = (int(self.position[0]), int(self.position[1]))
-        pygame.draw.circle(screen, self.color, screen_position, self.radius)
-
 
 class SpaceShip(object):
-
-    future_image = pygame.Surface((1, 1))
-    future_image.fill(pygame.color.Color("white"))
-
     def __init__(self, position, speed, rgb):
         self.position = position
         self.speed = speed
@@ -39,15 +31,6 @@ class SpaceShip(object):
         self.rgb = rgb
         self.color = pygame.color.Color(rgb[0], rgb[1], rgb[2], 255)
 
-    def draw(self):
-        screen_position = (int(self.position[0]), int(self.position[1]))
-        pygame.draw.circle(screen, self.color, screen_position, self.radius)
-
-    def draw_future(self, how_far):
-        screen_position = (int(self.position[0]), int(self.position[1]))
-        self.future_image.fill(self.color)
-        self.future_image.set_alpha(int(96 - 80 * how_far))
-        pygame.Surface.blit(screen, self.future_image, screen_position)
 
 class Statistics(object):
     def __init__(self):
@@ -93,9 +76,11 @@ class World(object):
     def random_spaceships(self):
         import random
         count = 10
-        for _ in range(count):
-            ship_position = (SCREEN_WIDTH * random.random(), SCREEN_HEIGHT * random.random())
-            ship_speed = (random.random() - 0.5,  random.random() - 0.5)
+        for d in range(count):
+            planet = random.choice(self.planets)
+            planet = self.planets[1]
+            ship_position = (planet.radius*d + planet.position[0] + planet.radius * random.random(), planet.radius*d + planet.position[1] + planet.radius * random.random())
+            ship_speed = (random.random() * 1.3*planet.speed[0], planet.speed[1] * 1.1)
             rgb = tuple(int(c) for c in (random.random() * 255, random.random() * 255, random.random() * 255))
             ship = SpaceShip(ship_position, ship_speed, rgb=rgb)
             self.spaceships.append(ship)
@@ -172,15 +157,126 @@ class World(object):
                 planet.position[1] + planet.speed[1]
             )
 
-    def draw(self):
-        for planet in self.planets:
-            planet.draw()
-        for spaceship in self.spaceships:
-            spaceship.draw()
+class Viewport(object):
 
-    def draw_future(self, how_far):
-        for spaceship in self.spaceships:
-            spaceship.draw_future(how_far)
+    spaceship_future_image = pygame.Surface((1, 1))
+    spaceship_future_image.fill(pygame.color.Color("white"))
+    SCROLL_STEP = 100
+    ZOOM_STEP = 2.0
+
+    def __init__(self, simulation, screen):
+        self.simulation = simulation
+        self.screen = screen
+        self.coordinates = (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.zoom = 1.0
+
+
+    def draw(self):
+        current_world = self.simulation.current_world
+        screen.fill(current_world.color_of_space)
+        self.draw_world()
+
+        for future_idx, future in enumerate(self.simulation.futures):
+            progress = float(future_idx) / self.simulation.future_step_count
+            self.draw_future(future, progress)
+        pygame.display.flip()
+
+    def draw_world(self):
+        for planet in self.simulation.current_world.planets:
+            self.draw_planet(planet)
+        for spaceship in self.simulation.current_world.spaceships:
+            self.draw_spaceship(spaceship)
+
+    def draw_future(self, future, how_far):
+        for spaceship in future.spaceships:
+            self.draw_future_spaceship(spaceship, how_far)
+
+    def draw_planet(self, planet):
+        screen_position = (
+            int((planet.position[0] - self.coordinates[0]) * self.zoom),
+            int((planet.position[1] - self.coordinates[1]) * self.zoom)
+        )
+        radius = int(planet.radius * self.zoom)
+
+        pygame.draw.circle(self.screen, planet.color, screen_position, radius)
+
+
+    def draw_spaceship(self, spaceship):
+        screen_position = (
+            int((spaceship.position[0] - self.coordinates[0]) * self.zoom),
+            int((spaceship.position[1] - self.coordinates[1]) * self.zoom),
+        )
+
+        pygame.draw.circle(self.screen, spaceship.color, screen_position, spaceship.radius)
+
+    def draw_future_spaceship(self, spaceship, how_far):
+        screen_position = (
+            int((spaceship.position[0] - self.coordinates[0]) * self.zoom),
+            int((spaceship.position[1] - self.coordinates[1]) * self.zoom)
+        )
+
+        self.spaceship_future_image.fill(spaceship.color)
+        self.spaceship_future_image.set_alpha(int(96 - 80 * how_far))
+        pygame.Surface.blit(self.screen, self.spaceship_future_image, screen_position)
+
+    def left(self):
+        self.coordinates = (
+            self.coordinates[0] - self.SCROLL_STEP * (1.0 / self.zoom),
+            self.coordinates[1],
+            self.coordinates[2],
+            self.coordinates[3]
+        )
+
+    def right(self):
+        self.coordinates = (
+            self.coordinates[0] + self.SCROLL_STEP * (1.0 / self.zoom),
+            self.coordinates[1],
+            self.coordinates[2],
+            self.coordinates[3]
+        )
+
+    def up(self):
+        self.coordinates = (
+            self.coordinates[0], 
+            self.coordinates[1] - self.SCROLL_STEP * (1.0 / self.zoom), 
+            self.coordinates[2],
+            self.coordinates[3]
+        )
+
+    def down(self):
+        self.coordinates = (
+            self.coordinates[0], 
+            self.coordinates[1] + self.SCROLL_STEP * (1.0 / self.zoom), 
+            self.coordinates[2], 
+            self.coordinates[3]
+        )
+
+    def zoom_in(self):
+        self.zoom *= self.ZOOM_STEP
+
+    def zoom_out(self):
+        self.zoom /= self.ZOOM_STEP
+
+class Simulation(object):
+    def __init__(self, world):
+        self.world = world
+        self.future_step_count = 500
+        self._futures = [world]
+        for _ in range(self.future_step_count):
+            self._futures.append(copy.deepcopy(self._futures[-1]).tick())
+
+    def tick(self):
+        self._futures.append(copy.deepcopy(self._futures[-1]).tick())
+        self._futures.pop(0)
+
+    @property
+    def current_world(self):
+        return self._futures[0]
+
+    @property
+    def futures(self):
+        return self._futures[1:]
+
 
 def setup_screen():
     global screen
@@ -196,10 +292,8 @@ def game_loop(world):
     current_frame = 0
     frame_statistics = Statistics()
 
-    future_step_count = 500
-    futures = [world]
-    for _ in range(future_step_count):
-        futures.append(copy.deepcopy(futures[-1]).tick())
+    simulation = Simulation(world)
+    viewport = Viewport(simulation, screen)
 
     while True:
         frame_timer.tick()
@@ -208,17 +302,23 @@ def game_loop(world):
         while event.type != pygame.NOEVENT:
             if event.type == pygame.QUIT:
                 return
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    viewport.left()
+                elif event.key == pygame.K_RIGHT:
+                    viewport.right()
+                elif event.key == pygame.K_UP:
+                    viewport.up()
+                elif event.key == pygame.K_DOWN:
+                    viewport.down()
+                elif event.key == pygame.K_MINUS:
+                    viewport.zoom_out()
+                elif event.key == pygame.K_EQUALS:
+                    viewport.zoom_in()
             event = pygame.event.poll()
 
-        current_world = futures.pop(0)
-        screen.fill(current_world.color_of_space)
-        current_world.draw()
-
-        for future_idx, future in enumerate(futures):
-            future.draw_future(float(future_idx) / future_step_count)
-
-        futures.append(copy.deepcopy(futures[-1]).tick())
-        pygame.display.flip()
+        viewport.draw()
+        simulation.tick()
         frame_timer.tick()
 
         frame_time = frame_timer.get_time()
