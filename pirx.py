@@ -91,7 +91,7 @@ class World(object):
             self.world = world
         
         def do(self):
-            print "Boom"
+            print("Boom")
             self.world.spaceships.remove(self.spaceship)
 
     def tick(self):
@@ -327,10 +327,10 @@ def game_loop(world):
         current_frame += 1
 
         if current_frame % framerate_limit == 0:
-            print "Frame time avg", frame_statistics.moving_avg
-            print "Frame time min", frame_statistics.min_sample
-            print "Frame time max", frame_statistics.max_sample
-            print "FPS:", framerate_limiter.get_fps()
+            print("Frame time avg", frame_statistics.moving_avg)
+            print("Frame time min", frame_statistics.min_sample)
+            print("Frame time max", frame_statistics.max_sample)
+            print("FPS:", framerate_limiter.get_fps())
             current_frame = 0
             frame_statistics.reset()
 
