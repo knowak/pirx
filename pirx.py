@@ -305,6 +305,9 @@ def game_loop(world):
                     viewport.zoom_out()
                 elif event.key == pygame.K_EQUALS:
                     viewport.zoom_in()
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    return
             event = pygame.event.poll()
 
         viewport.draw()
@@ -329,4 +332,3 @@ if __name__ == '__main__':
     setup_screen()
     world = World()
     game_loop(world)
-
