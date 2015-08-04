@@ -192,32 +192,22 @@ class Viewport(object):
             self.draw_future_spaceship(spaceship, how_far)
 
     def draw_planet(self, planet):
-        screen_position = (
-            int((planet.position[0] - self.coordinates[0]) * self.zoom),
-            int((planet.position[1] - self.coordinates[1]) * self.zoom)
-        )
         radius = int(planet.radius * self.zoom)
 
-        pygame.draw.circle(self.screen, planet.color, screen_position, radius)
-
+        pygame.draw.circle(self.screen, planet.color, self.screen_position(planet.position), radius)
 
     def draw_spaceship(self, spaceship):
-        screen_position = (
-            int((spaceship.position[0] - self.coordinates[0]) * self.zoom),
-            int((spaceship.position[1] - self.coordinates[1]) * self.zoom),
-        )
-
-        pygame.draw.circle(self.screen, spaceship.color, screen_position, spaceship.radius)
+        pygame.draw.circle(self.screen, spaceship.color, self.screen_position(spaceship.position), spaceship.radius)
 
     def draw_future_spaceship(self, spaceship, how_far):
-        screen_position = (
-            int((spaceship.position[0] - self.coordinates[0]) * self.zoom),
-            int((spaceship.position[1] - self.coordinates[1]) * self.zoom)
-        )
-
         self.spaceship_future_image.fill(spaceship.color)
         self.spaceship_future_image.set_alpha(int(96 - 80 * how_far))
-        pygame.Surface.blit(self.screen, self.spaceship_future_image, screen_position)
+        pygame.Surface.blit(self.screen, self.spaceship_future_image, self.screen_position(spaceship.position))
+
+    def screen_position(self, position):
+        pos_x = (position[0] - self.coordinates[0]) * self.zoom
+        pos_y = (position[1] - self.coordinates[1]) * self.zoom
+        return (int(pos_x), int(pos_y))
 
     def left(self):
         self.coordinates = (
