@@ -272,7 +272,7 @@ def setup_screen():
     global screen
     pygame.init()
     pygame.display.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.DOUBLEBUF, SCREEN_COLOR_DEPTH)
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.DOUBLEBUF | pygame.FULLSCREEN, SCREEN_COLOR_DEPTH)
 
 
 def game_loop(world):
