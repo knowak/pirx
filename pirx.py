@@ -169,6 +169,7 @@ class Viewport(object):
         self.simulation = simulation
         self.screen = screen
         self.coordinates = (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.center_point = (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
         self.zoom = 1.0
 
 
@@ -206,9 +207,9 @@ class Viewport(object):
         pygame.Surface.blit(self.screen, self.spaceship_future_image, self.screen_position(spaceship.position))
 
     def screen_position(self, position):
-        pos_x = (position[0] - self.coordinates[0]) * self.zoom
-        pos_y = (position[1] - self.coordinates[1]) * self.zoom
-        return (int(pos_x), int(pos_y))
+        x_pos = SCREEN_WIDTH / 2 + (position[0] - self.center_point[0]) * self.zoom
+        y_pos = SCREEN_HEIGHT / 2 + (position[1] - self.center_point[1]) * self.zoom
+        return (int(x_pos), int(y_pos))
 
     def left(self):
         self.coordinates = (
@@ -290,6 +291,7 @@ def game_loop(world):
 
     simulation = Simulation(world)
     viewport = Viewport(simulation, screen)
+    center_planet = 0
 
     while True:
         frame_timer.tick()
@@ -300,9 +302,9 @@ def game_loop(world):
                 return
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    viewport.left()
+                    center_planet -= 1
                 elif event.key == pygame.K_RIGHT:
-                    viewport.right()
+                    center_planet += 1
                 elif event.key == pygame.K_UP:
                     viewport.up()
                 elif event.key == pygame.K_DOWN:
@@ -316,6 +318,7 @@ def game_loop(world):
                     return
             event = pygame.event.poll()
 
+        viewport.center_point = simulation.current_world.planets[center_planet].position
         viewport.draw()
         simulation.tick()
         frame_timer.tick()
