@@ -318,7 +318,8 @@ def game_loop(world):
                     return
             event = pygame.event.poll()
 
-        viewport.center_point = simulation.current_world.planets[center_planet].position
+        viewed_planet = center_planet % len(simulation.current_world.planets)
+        viewport.center_point = simulation.current_world.planets[viewed_planet].position
         viewport.draw()
         simulation.tick()
         frame_timer.tick()
