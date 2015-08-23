@@ -4,6 +4,7 @@ import copy
 import collections
 import itertools
 import math
+import sys
 
 import pygame
 
@@ -272,7 +273,12 @@ def setup_screen():
     global screen
     pygame.init()
     pygame.display.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.DOUBLEBUF | pygame.FULLSCREEN, SCREEN_COLOR_DEPTH)
+
+    fullscreen = "-f" in sys.argv
+    flags = pygame.DOUBLEBUF
+    if fullscreen:
+        flags |= pygame.FULLSCREEN
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags, SCREEN_COLOR_DEPTH)
 
 
 def game_loop(world):
