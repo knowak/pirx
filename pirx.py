@@ -4,6 +4,7 @@ import copy
 import collections
 import itertools
 import math
+import random
 import sys
 
 import pygame
@@ -31,6 +32,13 @@ class SpaceShip(object):
         self.mass = 1.0
         self.rgb = rgb
         self.color = pygame.color.Color(rgb[0], rgb[1], rgb[2], 255)
+
+    # momentum needed
+    def accelerate(self):
+        self.speed = (self.speed[0] * 1.01, self.speed[1] * 1.01)
+
+    def decelerate(self):
+        self.speed = (self.speed[0] - self.speed[0] * 0.009, self.speed[1] - self.speed[1] * 0.009)
 
 
 class Statistics(object):
@@ -75,7 +83,6 @@ class World(object):
         self.deferred_actions = []
     
     def random_spaceships(self):
-        import random
         count = 10
         for d in range(count):
             planet = random.choice(self.planets)
@@ -252,8 +259,11 @@ class Viewport(object):
 class Simulation(object):
     def __init__(self, world):
         self.world = world
-        self.future_step_count = 500
+        self.future_step_count = 1000
         self._futures = [world]
+        self._fill_future_states()
+
+    def _fill_future_states(self):
         for _ in range(self.future_step_count):
             self._futures.append(copy.deepcopy(self._futures[-1]).tick())
 
@@ -269,6 +279,10 @@ class Simulation(object):
     def futures(self):
         return self._futures[1:]
 
+    def refresh(self):
+        self._futures = [self._futures[1]]
+        self._fill_future_states()
+
 
 def setup_screen():
     global screen
@@ -282,18 +296,30 @@ def setup_screen():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags, SCREEN_COLOR_DEPTH)
 
 
+def ticks_per_second_to_ms_delay(ticks_per_second):
+    return 1000 / float(ticks_per_second)
+
+
 def game_loop(world):
     framerate_limit = 60
     framerate_limiter = pygame.time.Clock()
     frame_timer = pygame.time.Clock()
+    simulation_timer = pygame.time.Clock()
     current_frame = 0
     frame_statistics = Statistics()
 
     simulation = Simulation(world)
     viewport = Viewport(simulation, screen)
     center_planet = 0
+    center_ship = -1
+
+    simulation_ticks_per_second = 128
+    simulate_every_ms = ticks_per_second_to_ms_delay(simulation_ticks_per_second)
+
+    simulation_trigger = pygame.time.get_ticks()
 
     while True:
+        simulation_refresh_needed = False
         frame_timer.tick()
         event = pygame.event.poll()
 
@@ -303,8 +329,26 @@ def game_loop(world):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
                     center_planet -= 1
+                    center_ship = -1
                 elif event.key == pygame.K_RIGHT:
                     center_planet += 1
+                    center_ship = -1
+                elif event.key == pygame.K_1:
+                    center_ship -= 1
+                    center_planet = -1
+                elif event.key == pygame.K_2:
+                    center_ship += 1
+                    center_planet = -1
+                elif event.key == pygame.K_w:
+                    if center_ship != -1:
+                        viewed_ship = center_ship % len(simulation.current_world.spaceships)
+                        simulation.futures[0].spaceships[viewed_ship].accelerate() # it doesn't have to be there ;-)
+                        simulation_refresh_needed = True
+                elif event.key == pygame.K_s:
+                    if center_ship != -1:
+                        viewed_ship = center_ship % len(simulation.current_world.spaceships)
+                        simulation.futures[0].spaceships[viewed_ship].decelerate() # it doesn't have to be there ;-)
+                        simulation_refresh_needed = True
                 elif event.key == pygame.K_UP:
                     viewport.up()
                 elif event.key == pygame.K_DOWN:
@@ -316,12 +360,33 @@ def game_loop(world):
                 elif event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     return
+                elif event.key == pygame.K_COMMA:
+                    simulation_ticks_per_second = max(1, simulation_ticks_per_second / 2)
+                    print "Simulation ticks per second:", simulation_ticks_per_second
+                    simulate_every_ms = ticks_per_second_to_ms_delay(simulation_ticks_per_second)
+                elif event.key == pygame.K_PERIOD:
+                    simulation_ticks_per_second = min(256, simulation_ticks_per_second * 2)
+                    print "Simulation ticks per second:", simulation_ticks_per_second
+                    simulate_every_ms = ticks_per_second_to_ms_delay(simulation_ticks_per_second)
+
             event = pygame.event.poll()
 
-        viewed_planet = center_planet % len(simulation.current_world.planets)
-        viewport.center_point = simulation.current_world.planets[viewed_planet].position
+        if center_planet != -1:
+            viewed_planet = center_planet % len(simulation.current_world.planets)
+            viewport.center_point = simulation.current_world.planets[viewed_planet].position
+        else:
+            viewed_ship = center_ship % len(simulation.current_world.spaceships)
+            viewport.center_point = simulation.current_world.spaceships[viewed_ship].position
         viewport.draw()
-        simulation.tick()
+
+        if simulation_refresh_needed:
+            simulation.refresh()
+
+        now = pygame.time.get_ticks()
+        if now - simulation_trigger > simulate_every_ms or simulation_refresh_needed:
+            simulation_trigger = now
+            simulation.tick()
+
         frame_timer.tick()
 
         frame_time = frame_timer.get_time()
